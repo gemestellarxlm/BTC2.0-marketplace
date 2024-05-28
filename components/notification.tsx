@@ -14,7 +14,7 @@ interface NotificationProps {
   handleClick: (id: number) => void;
 }
 
-export default function Notification(props: NotificationProps) {
+export const Notification = (props: NotificationProps) => {
   const {
     name,
     action,

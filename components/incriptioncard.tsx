@@ -15,11 +15,12 @@ import { useRouter } from "next/navigation";
 import { IInscription } from "@/types/inscription";
 
 const InscriptionCard = ({ inscription }: { inscription: IInscription }) => {
+  const {currentAccount} = useContext(ConnectionContext);
+  
   const router = useRouter();
   const [data, setData] = useState();
 
   useEffect(() => {
-    // console.log("inscription =>", inscription);
   }, []);
 
   return (

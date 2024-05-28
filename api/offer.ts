@@ -1,31 +1,33 @@
 import { IOffer } from "@/types/offer";
 
-const getOffersByInscriptionId = async (inscriptionId: string) => {
+export const getOffersByInscriptionId = async (inscriptionId: string) => {
   const res = [
     {
-      sellerAddress: "string",
-      buyerAddress: "string;",
+      sellerAddress: "tb1ppdffzw7jl9gch5ny77kuep79fgmh7n90d2j8aysv95lrwghl795s5crggu",
+      buyerAddress: "tb1ppdffzw7jl9gch5ny77kuep79fgmh7n90d2j8aysv95lrwghl795s5crggu",
       inscriptionId: "string;",
       price: 2342,
-      tokenTicker: "tvnt",
+      tokenTicker: "tsnt",
     },
     {
-        sellerAddress: "string",
-        buyerAddress: "string;",
+        sellerAddress: "tb1ppdffzw7jl9gch5ny77kuep79fgmh7n90d2j8aysv95lrwghl795s5crggu",
+        buyerAddress: "tb1ppdffzw7jl9gch5ny77kuep79fgmh7n90d2j8aysv95lrwghl795s5crggu",
         inscriptionId: "string;",
         price: 3564,
-        tokenTicker: "tvnt",
+        tokenTicker: "tsnt",
       },
       {
-        sellerAddress: "string",
-        buyerAddress: "string;",
+        sellerAddress: "tb1ppdffzw7jl9gch5ny77kuep79fgmh7n90d2j8aysv95lrwghl795s5crggu",
+        buyerAddress: "tb1ppdffzw7jl9gch5ny77kuep79fgmh7n90d2j8aysv95lrwghl795s5crggu",
         inscriptionId: "string;",
         price: 8765,
-        tokenTicker: "tvnt",
+        tokenTicker: "tsnt",
       },
   ];
 
   return res;
 };
 
-export default getOffersByInscriptionId;
+export const requestOffer = async (inscriptionId: string, buyerAddress: string, price: number, tokenTicker: string) => {
+
+}
