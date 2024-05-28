@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { usePathname } from "next/navigation";
 import {
   Image,
   Card,
   CardBody,
   Button,
+  ButtonGroup,
   Table,
   TableHeader,
   TableColumn,
@@ -23,25 +24,30 @@ import {
   useDisclosure,
   Divider,
 } from "@nextui-org/react";
+import toast, { Toaster } from "react-hot-toast";
 
 import { getInscriptionById } from "@/api/inscription";
-import getOffersByInscriptionId from "@/api/offer";
+import { getOffersByInscriptionId, requestOffer } from "@/api/offer";
 import { IInscription } from "@/types/inscription";
-import { IOffer, IOfferForTable } from "@/types/offer";
-import { offerTableColumns } from "@/config/table";
+import { IOffer, IOfferForTable, IOfferForTableMe } from "@/types/offer";
+import { offerTableColumns, offerTableColumnsMe } from "@/config/table";
 import { getOfferDataForTable } from "@/utils/offer";
+import { ConnectionContext } from "@/contexts/connectioncontext";
+import { getTokenBalanceByAddressTicker } from "@/api/unisat";
+import { Notification } from "@/components/notification";
+import { unlistInscription } from "@/api/list";
+// import { toaster } from "@/utils/toast";
 
 const page = () => {
   const pathname = usePathname();
+  const { currentAccount } = useContext(ConnectionContext);
   const [inscription, setInscription] = useState<IInscription>({
     address: "string",
     inscriptionId: "string",
     inscriptionNumber: 0,
-    output: "string",
-    outputValue: 0,
     content: "string",
     price: 1234124,
-    tokenTicker: "tvnt",
+    tokenTicker: "tsnt",
   });
   const [offers, setOffers] = useState<IOfferForTable[]>([]);
   const [bestOffer, setBestOffer] = useState<IOfferForTable>({
@@ -50,6 +56,9 @@ const page = () => {
     token: "",
     from: "",
   });
+  const [isListed, setIsListed] = useState(true);
+  const [tokenBalance, setTokenBalance] = useState(0);
+  const [offerValue, setOfferValue] = useState(0);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
   useEffect(() => {
@@ -57,8 +66,22 @@ const page = () => {
     getOffers();
   }, []);
 
+  useEffect(() => {
+    getTokenBalance();
+  }, [currentAccount]);
+
+  const getTokenBalance = async () => {
+    if (!currentAccount) return;
+    const res = await getTokenBalanceByAddressTicker(currentAccount, "TSNT");
+    setTokenBalance(res);
+  };
+
   const getInscription = async () => {
     const res = await getInscriptionById(pathname);
+
+    if (res.price) setIsListed(true);
+    else setIsListed(false);
+
     setInscription(res);
   };
 
@@ -79,7 +102,39 @@ const page = () => {
     setOffers(resForTable);
   };
 
-  const handleMakeOffer = () => {};
+  const makeOffer = async () => {
+    if (offerValue > tokenBalance) {
+      toast.error(
+        "You don't have enough funds to complete the purchase. Please deposit or convert your funds."
+      );
+      return;
+    }
+    const res = await requestOffer(
+      inscription.inscriptionId,
+      currentAccount,
+      offerValue,
+      inscription.tokenTicker
+    );
+  };
+
+  const requestList = async () => {
+    const res = await unlistInscription(inscription.inscriptionId);
+    // if (res) toast.success("Successfully unlisted!");
+    // else toast.success("Error occured.");
+  };
+
+  const handleOfferOrList = () => {
+    if (isListed) makeOffer();
+    else requestList();
+  };
+
+  const handleUnlist = async () => {};
+
+  const handleList = async () => {};
+
+  const handleAccept = (offId: string) => {};
+
+  const handleReject = (offId: string) => {};
 
   return (
     <div className="flex justify-center">
@@ -99,76 +154,182 @@ const page = () => {
                 width="100%"
               />
             </div>
-
+            {}
             <div className="flex flex-col justify-start h-full pt-6 col-span-12 md:col-span-7 gap-4">
               <h1>{"inscriptionID : " + inscription.inscriptionId}</h1>
-              <h2>
-                {"Price : " + inscription.price + " " + inscription.tokenTicker}
-              </h2>
-              <Button color="primary" onPress={onOpen}>
-                Make Offer
-              </Button>
-              <Table aria-label="Offers">
-                <TableHeader>
-                  {offerTableColumns.map((column) => (
-                    <TableColumn key={column.key}>{column.label}</TableColumn>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {offers.map((offer) => (
-                    <TableRow key={offer.key}>
-                      {(columnKey) => (
-                        <TableCell>{getKeyValue(offer, columnKey)}</TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                Make Offer
-              </ModalHeader>
-              <Divider />
-              <ModalBody>
-                <h1>{"inscriptionID : " + inscription.inscriptionId}</h1>
+              {(currentAccount != inscription.address || isListed) && (
                 <h2>
                   {"Price : " +
                     inscription.price +
                     " " +
                     inscription.tokenTicker}
                 </h2>
+              )}
+
+              {currentAccount != inscription.address && (
+                <Button color="primary" onPress={onOpen}>
+                  Make Offer
+                </Button>
+              )}
+
+              {currentAccount === inscription.address && isListed && (
+                <ButtonGroup className="w-full">
+                  <Button color="primary" className="w-full" onPress={onOpen}>
+                    Update Price
+                  </Button>
+                  <Button className="w-full" onPress={handleUnlist}>
+                    Unlist
+                  </Button>
+                </ButtonGroup>
+              )}
+
+              {currentAccount === inscription.address && !isListed && (
+                <ButtonGroup>
+                  <Button color="primary" onPress={handleList}>
+                    List
+                  </Button>
+                </ButtonGroup>
+              )}
+              {currentAccount != inscription.address && (
+                <Table aria-label="Offers">
+                  <TableHeader>
+                    {offerTableColumns.map((column) => (
+                      <TableColumn key={column.key}>{column.label}</TableColumn>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {offers.map((offer) => (
+                      <TableRow key={offer.key}>
+                        {(columnKey) => (
+                          <TableCell>
+                            {columnKey === "from"
+                              ? getKeyValue(offer, columnKey).substring(0, 9)
+                              : getKeyValue(offer, columnKey)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              {currentAccount === inscription.address && isListed && (
+                <Table aria-label="Offers">
+                  <TableHeader>
+                    {offerTableColumnsMe.map((column) => (
+                      <TableColumn key={column.key}>{column.label}</TableColumn>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {offers.map((offer) => (
+                      <TableRow key={offer.key}>
+                        {(columnKey) => (
+                          <TableCell>
+                            {columnKey === "action" && (
+                              <ButtonGroup className="w-full">
+                                <Button
+                                  color="primary"
+                                  className="w-full"
+                                  size="sm"
+                                  onPress={(e) => handleAccept(offer.key)}
+                                >
+                                  Accept
+                                </Button>
+                                <Button
+                                  className="w-full"
+                                  size="sm"
+                                  onPress={(e) => handleReject(offer.key)}
+                                >
+                                  Reject
+                                </Button>
+                              </ButtonGroup>
+                            )}
+                            {columnKey === "from" &&
+                              getKeyValue(offer, columnKey).substring(0, 9) +
+                                "..."}
+                            {(columnKey === "price" || columnKey === "token") &&
+                              getKeyValue(offer, columnKey)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+      <div>
+        <Toaster
+          position="top-right"
+          reverseOrder={true}
+          toastOptions={{
+            success: {
+              style: {
+                background: "black",
+                color: "white",
+              },
+            },
+            error: {
+              style: {
+                background: "black",
+                color: "white",
+              },
+            },
+          }}
+        />
+      </div>
+
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                {inscription.address !== currentAccount && "Make Offer"} 
+                {(inscription.address === currentAccount && isListed) && "Update Price"}
+                {(inscription.address === currentAccount && !isListed) && "List Inscription"}
+              </ModalHeader>
+              <Divider />
+              <ModalBody>
+                <h1>{"inscriptionID : " + inscription.inscriptionId}</h1>
+                {inscription.address !== currentAccount && (
+                  <h2>
+                    {"Price : " +
+                      inscription.price +
+                      " " +
+                      inscription.tokenTicker}
+                  </h2>
+                )}
                 {bestOffer && (
                   <>
                     <Divider />
                     <h2>Best Offer</h2>
-                    <h3>{bestOffer.price + " TVNT"}</h3>
+                    <h3>{bestOffer.price + " TSNT"}</h3>
                   </>
                 )}
                 <Divider orientation="horizontal" />
-                <h2>Your Offer</h2>
+                {isListed ? <h2>Your Offer</h2> : <h2>Price</h2>}
                 <Input
                   type="number"
                   placeholder="Input your offer value."
+                  onChange={(e) => setOfferValue(parseInt(e.target.value))}
                   endContent={
                     <div className="pointer-events-none flex items-center">
-                      <span className="text-default-400 text-small">TVNT</span>
+                      <span className="text-default-400 text-small">tsnt</span>
                     </div>
                   }
                 />
-                <Divider orientation="horizontal" />
-                <h2>Your Balance</h2>
+                <>
+                  <Divider orientation="horizontal" />
+                  <h2>Your Balance</h2>
+                  <h3>{tokenBalance}&nbsp;TSNT</h3>
+                </>
+                {/* )} */}
               </ModalBody>
               <Divider orientation="horizontal" />
               <ModalFooter>
-                <Button color="primary" onPress={handleMakeOffer}>
-                  Offer
+                <Button color="primary" onPress={handleOfferOrList}>
+                  {isListed ? "Offer" : "List"}
                 </Button>
                 <Button onPress={onClose}>Cancel</Button>
               </ModalFooter>

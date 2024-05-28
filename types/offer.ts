@@ -12,3 +12,11 @@ export interface IOfferForTable {
     token: string;
     from: string;
 }
+
+export interface IOfferForTableMe {
+    key: string;
+    price: number;
+    token: string;
+    from: string;
+    action: string;
+}
