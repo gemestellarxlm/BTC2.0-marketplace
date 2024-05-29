@@ -11,6 +11,10 @@ export const offerTableColumns = [
     key: "from",
     label: "FROM",
   },
+  {
+    key: "status",
+    label: "STATUS",
+  },
 ];
 
 export const offerTableColumnsMe = [
@@ -27,7 +31,12 @@ export const offerTableColumnsMe = [
     label: "FROM",
   },
   {
+    key: "status",
+    label: "STATUS",
+  },
+  {
     key: "action",
     label: "ACTION",
   },
+  
 ];

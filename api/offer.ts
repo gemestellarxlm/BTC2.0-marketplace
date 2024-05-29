@@ -48,13 +48,27 @@ export const requestPsbt = async (
       sellerPubkey: sellerPubkey,
       sellerAddress: sellerAddress
     });
+    console.log("psbt =>", res.data.psbt);
     return res.data.psbt;
   } catch(error) {
     return "";
   }
 }
 
-export const acceptOffer = async () => {};
+export const acceptOffer = async (inscriptionId: string, psbt: string, buyerSignedPsbt: string ,signedPsbt: string) => {
+  const url = `${backend_api_base_url}/api/offer/accept`;
+  try {
+    await axios.post(url, {
+      inscriptionId: inscriptionId,
+      psbt: psbt,
+      buyerSignedPsbt: buyerSignedPsbt,
+      signedPsbt: signedPsbt
+    });
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 
 export const rejectOffer = async (id: string) => {
   const url = `${backend_api_base_url}/api/offer/remove/${id}`;

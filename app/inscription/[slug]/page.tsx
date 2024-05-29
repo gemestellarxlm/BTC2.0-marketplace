@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useContext } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, redirect } from "next/navigation";
 import {
   Image,
   Card,
@@ -25,7 +25,6 @@ import {
   Divider,
 } from "@nextui-org/react";
 import toast, { Toaster } from "react-hot-toast";
-import * as Bitcoin from "bitcoinjs-lib";
 
 import { getInscriptionById } from "@/api/inscription";
 import {
@@ -33,6 +32,7 @@ import {
   requestOffer,
   requestPsbt,
   rejectOffer,
+  acceptOffer,
 } from "@/api/offer";
 import { IInscription } from "@/types/inscription";
 import { IOffer, IOfferForTable, IOfferForTableMe } from "@/types/offer";
@@ -40,10 +40,8 @@ import { offerTableColumns, offerTableColumnsMe } from "@/config/table";
 import { getOfferDataForTable } from "@/utils/offer";
 import { ConnectionContext } from "@/contexts/connectioncontext";
 import { getTokenBalanceByAddressTicker } from "@/api/unisat";
-import { Notification } from "@/components/notification";
 import { unlistInscription, listInscription } from "@/api/list";
 import { marketplace_fee } from "@/config/site";
-import { testpsbt } from "@/config/site";
 
 const page = () => {
   const pathname = usePathname();
@@ -58,11 +56,13 @@ const page = () => {
     tokenTicker: "",
   });
   const [offers, setOffers] = useState<IOfferForTable[]>([]);
+  const [offerList, setOfferList] = useState<IOffer[]>([]);
   const [bestOffer, setBestOffer] = useState<IOfferForTable>({
     key: "",
     price: 0,
     token: "",
     from: "",
+    status: 0,
   });
   const [isListed, setIsListed] = useState(true);
   const [tokenBalance, setTokenBalance] = useState(0);
@@ -112,9 +112,8 @@ const page = () => {
 
   const getOffers = async () => {
     let res = await getOffersByInscriptionId(pathname);
-    if (currentAccount == inscription.address) {
-      res = res.filter((item: any) => item.status == 1);
-    }
+    setOfferList(res);
+
     const resForTable: IOfferForTable[] = getOfferDataForTable(res);
 
     if (resForTable.length != 0) {
@@ -137,76 +136,65 @@ const page = () => {
       );
       return;
     }
-    // let fee_brcInscription: any = {},
-    //   brcInscription: any = {};
-    // try {
-    //   fee_brcInscription = await window.unisat.inscribeTransfer(
-    //     "tsnt",
-    //     Math.round((offerValue * marketplace_fee) / 100).toString()
-    //   );
+    let fee_brcInscription: any = {},
+      brcInscription: any = {};
+    try {
+      fee_brcInscription = await window.unisat.inscribeTransfer(
+        "tsnt",
+        Math.round((offerValue * marketplace_fee) / 100).toString()
+      );
 
-    //   console.log("fee_brcinscription => ", fee_brcInscription);
-    //   brcInscription = await window.unisat.inscribeTransfer(
-    //     "tsnt",
-    //     Math.round((offerValue * (100 - marketplace_fee)) / 100).toString()
-    //   );
-    //   console.log("fee_brcinscription => ", brcInscription);
-    // } catch (error) {
-    //   toast.error("Error occured while inscribing your brc20 tokens!");
-    //   return;
-    // }
+      brcInscription = await window.unisat.inscribeTransfer(
+        "tsnt",
+        Math.round((offerValue * (100 - marketplace_fee)) / 100).toString()
+      );
+    } catch (error) {
+      toast.error("Error occured while inscribing your brc20 tokens!");
+      return;
+    }
 
-    // console.log(
-    //   "Psbt src data => ",
-    //   inscription.inscriptionId,
-    //   pubkey,
-    //   currentAccount,
-    //   inscription.pubkey,
-    //   inscription.address
-    // );
+    const psbtStr: any = await requestPsbt(
+      inscription.inscriptionId,
+      brcInscription.inscriptionId,
+      fee_brcInscription.inscriptionId,
+      pubkey,
+      currentAccount,
+      inscription.pubkey,
+      inscription.address
+    );
 
-    // const psbtStr: any = await requestPsbt(
-    //   inscription.inscriptionId,
-    //   // brcInscription.inscriptionId,
-    //   // fee_brcInscription.inscriptionId,
-    //   "b1da10806f31ea5748863bcf87d419913063941593af4d46f4cfb0dad885a2a1i0",
-    //   "596dd60e2965b356aad4004912d3d905cb2266dba25d8372b50d17423d81fe34i0",
-    //   pubkey,
-    //   currentAccount,
-    //   inscription.pubkey,
-    //   inscription.address
-    // );
-
-    // console.log("psbt str => ", psbtStr);
-
-    // if (psbtStr == "") {
-    //   toast.error("Error occured while request psbt.");
-    //   return;
-    // }
+    if (psbtStr == "") {
+      toast.error("Error occured while request psbt.");
+      return;
+    }
     // const psbt = Bitcoin.Psbt.fromHex(psbtStr);
+    // console.log("psbt => ", psbt);
     let signedPsbt: any;
     try {
-      // signedPsbt = await window.unisat.signPsbt(psbtStr);
-      signedPsbt = await window.unisat.signPsbt(testpsbt);
+      signedPsbt = await window.unisat.signPsbt(psbtStr);
     } catch (error) {
       toast.error("Error occured while sign transaction.");
       return;
     }
 
-    console.log("Signed Psbt => ", signedPsbt);
-
     let offerFlag: any;
     try {
       offerFlag = await requestOffer({
+        _id: "",
         inscriptionId: inscription.inscriptionId,
         sellerAddress: inscription.address,
         buyerAddress: currentAccount,
         price: offerValue,
         tokenTicker: "tsnt",
-        psbt: signedPsbt,
+        psbt: psbtStr,
         status: 1,
+        buyerSignedPsbt: signedPsbt,
       });
-      if (offerFlag) toast.success("Successfully offered.");
+      if (offerFlag) {
+        toast.success("Successfully offered.");
+        onClose();
+        initData();
+      }
     } catch (error) {
       toast.error("Error occured while request offer.");
     }
@@ -214,8 +202,8 @@ const page = () => {
 
   const requestList = async () => {
     const res = await listInscription({
-      address: inscription.address,
-      pubkey: inscription.pubkey,
+      address: currentAccount,
+      pubkey: pubkey,
       inscriptionId: inscription.inscriptionId,
       inscriptionNumber: inscription.inscriptionNumber,
       content: inscription.content,
@@ -266,9 +254,30 @@ const page = () => {
     } else requestList();
   };
 
-  // const handleList = async () => {};
+  const handleAccept = async (offerId: string) => {
+    let inscriptionId = "",
+      psbt = "",
+      buyerSignedPsbt = "";
+    offerList.forEach((offer) => {
+      if (offer._id == offerId) {
+        inscriptionId = offer.inscriptionId;
+        psbt = offer.psbt;
+        buyerSignedPsbt = offer.buyerSignedPsbt;
+      }
+    });
 
-  const handleAccept = (offerId: string) => {};
+    let signedPsbt = "";
+    try {
+      signedPsbt = await window.unisat.signPsbt(buyerSignedPsbt);
+
+      await acceptOffer(inscriptionId, psbt, buyerSignedPsbt, signedPsbt);
+      toast.success(
+        "Congratelation. Your ordinal was sold out. Please wait a minute and check your wallet."
+      );
+      redirect("/");
+    } catch (error) {
+    }
+  };
 
   const handleReject = async (offerId: string) => {
     const res = await rejectOffer(offerId);
@@ -353,7 +362,11 @@ const page = () => {
                             {columnKey === "from"
                               ? getKeyValue(offer, columnKey).substring(0, 9) +
                                 "..."
-                              : getKeyValue(offer, columnKey)}
+                              : columnKey === "status"
+                                ? getKeyValue(offer, columnKey) == 1
+                                  ? "Requested"
+                                  : "Rejected"
+                                : getKeyValue(offer, columnKey)}
                           </TableCell>
                         )}
                       </TableRow>
@@ -373,28 +386,36 @@ const page = () => {
                       <TableRow key={offer.key}>
                         {(columnKey) => (
                           <TableCell>
-                            {columnKey === "action" && (
-                              <ButtonGroup className="w-full">
-                                <Button
-                                  color="primary"
-                                  className="w-full"
-                                  size="sm"
-                                  onPress={(e) => handleAccept(offer.key)}
-                                >
-                                  Accept
-                                </Button>
-                                <Button
-                                  className="w-full"
-                                  size="sm"
-                                  onPress={(e) => handleReject(offer.key)}
-                                >
-                                  Reject
-                                </Button>
-                              </ButtonGroup>
-                            )}
+                            {columnKey === "action" &&
+                              (getKeyValue("status", columnKey) === 2 ? (
+                                ""
+                              ) : (
+                                <ButtonGroup className="w-full">
+                                  <Button
+                                    color="primary"
+                                    className="w-full"
+                                    size="sm"
+                                    onPress={(e) => handleAccept(offer.key)}
+                                  >
+                                    Accept
+                                  </Button>
+                                  <Button
+                                    className="w-full"
+                                    size="sm"
+                                    onPress={(e) => handleReject(offer.key)}
+                                  >
+                                    Reject
+                                  </Button>
+                                </ButtonGroup>
+                              ))}
+                            {/* {(columnKey === "action" && getKeyValue("status", columnKey) == 2) && ""} */}
                             {columnKey === "from" &&
                               getKeyValue(offer, columnKey).substring(0, 9) +
                                 "..."}
+                            {columnKey === "status" &&
+                              (getKeyValue(offer, columnKey) == 1
+                                ? "Requested"
+                                : "Rejected")}
                             {(columnKey === "price" || columnKey === "token") &&
                               getKeyValue(offer, columnKey)}
                           </TableCell>
