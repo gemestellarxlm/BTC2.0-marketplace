@@ -5,8 +5,8 @@ export const siteConfig = {
   description: "You can buy Ordinals using BRC20 tokens.",
   navItems: [
     {
-      label: "Profile",
-      href: "/profile",
+      label: "Home",
+      href: "/home",
     },
   ],
 };

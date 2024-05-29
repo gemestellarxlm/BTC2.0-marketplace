@@ -1,9 +1,11 @@
-"use client"
+"use client";
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode } from "react";
 
 declare global {
-  interface Window { unisat: any; }
+  interface Window {
+    unisat: any;
+  }
 }
 
 interface Balance {
@@ -17,24 +19,34 @@ interface ConnectionContextProps {
   isConnected: boolean;
   balance: Balance;
   currentAccount: string;
+  pubkey: string;
   network: string;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   switchNetwork: () => Promise<void>;
 }
 
-export const ConnectionContext = createContext<ConnectionContextProps>({} as ConnectionContextProps);
+export const ConnectionContext = createContext<ConnectionContextProps>(
+  {} as ConnectionContextProps
+);
 
 interface ConnectionProviderProps {
   children: ReactNode;
 }
 
-export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children }) => {
+export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({
+  children,
+}) => {
   const [isUnisatInstalled, setIsUnisatInstalled] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [balance, setBalance] = useState<Balance>({ confirmed: 0, unconfirmed: 0, total: 0 });
-  const [currentAccount, setCurrentAccount] = useState('');
-  const [network, setNetwork] = useState('livenet'); // Default network
+  const [balance, setBalance] = useState<Balance>({
+    confirmed: 0,
+    unconfirmed: 0,
+    total: 0,
+  });
+  const [currentAccount, setCurrentAccount] = useState("");
+  const [network, setNetwork] = useState("livenet"); // Default network
+  const [pubkey, setPubkey] = useState("");
 
   useEffect(() => {
     const checkUnisat = async () => {
@@ -53,10 +65,13 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
             setCurrentAccount(accounts[0]);
             const balance = await unisat.getBalance(accounts[0]);
             setBalance(balance);
+            const pubkey = await unisat.getPublicKey(accounts[0]);
+            console.log("xxxxx => ", pubkey);
+            setPubkey(pubkey);
           }
         } catch (error) {
-          console.error('Error checking Unisat status:', error);
-        //   message.error('Could not check Unisat status');
+          console.error("Error checking Unisat status:", error);
+          //   message.error('Could not check Unisat status');
         }
       }
     };
@@ -74,9 +89,12 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
           setCurrentAccount(accounts[0]);
           const newBalance = await unisat.getBalance(accounts[0]);
           setBalance(newBalance);
+          const pubkey = await unisat.getPublicKey(accounts[0]);
+          console.log("xxxxx => ", pubkey);
+          setPubkey(pubkey);
         }
       } catch (error) {
-        console.error('Error connecting to Unisat:', error);
+        console.error("Error connecting to Unisat:", error);
         // message.error('Could not connect to Unisat');
       }
     }
@@ -84,7 +102,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
 
   const disconnectWallet = () => {
     setIsConnected(false);
-    setCurrentAccount('');
+    setCurrentAccount("");
     setBalance({ confirmed: 0, unconfirmed: 0, total: 0 });
   };
 
@@ -92,41 +110,46 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     const unisat = window.unisat;
     if (unisat) {
       try {
-        const newNetwork = network === 'livenet' ? 'testnet' : 'livenet';
+        const newNetwork = network === "livenet" ? "testnet" : "livenet";
         await unisat.switchNetwork(newNetwork);
         setNetwork(newNetwork);
-        
+
         // After switching the network, refresh the account details
         const accounts = await unisat.getAccounts();
         if (accounts.length > 0) {
           setCurrentAccount(accounts[0]);
           const newBalance = await unisat.getBalance(accounts[0]);
           setBalance(newBalance);
+          const pubkey = await unisat.getPublicKey(accounts[0]);
+          setPubkey(pubkey);
+          console.log("xxxxx => ", pubkey);
         } else {
           // Handle the case where no accounts are found after the network switch
           setIsConnected(false);
-          setCurrentAccount('');
+          setCurrentAccount("");
           setBalance({ confirmed: 0, unconfirmed: 0, total: 0 });
         }
-        
       } catch (error) {
-        console.error('Error switching network:', error);
+        console.error("Error switching network:", error);
         // message.error('Could not switch network');
       }
     }
   };
 
   return (
-    <ConnectionContext.Provider value={{
-      isUnisatInstalled,
-      isConnected,
-      balance,
-      currentAccount,
-      network,
-      connectWallet,
-      disconnectWallet,
-      switchNetwork,
-    }}>
+    <ConnectionContext.Provider
+      value={{
+        isUnisatInstalled,
+        isConnected,
+        balance,
+        currentAccount,
+        pubkey,
+        network,
+        connectWallet,
+        disconnectWallet,
+        switchNetwork,
+      }}
+    >
       {children}
     </ConnectionContext.Provider>
   );

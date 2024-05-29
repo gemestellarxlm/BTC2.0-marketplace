@@ -4,6 +4,7 @@ export interface IOffer {
     inscriptionId: string;
     price: number;
     tokenTicker: string;
+    psbt: string;
 }
 
 export interface IOfferForTable {

@@ -1,10 +1,9 @@
 export interface IInscription {
-    address: string;
-    inscriptionId: string;
-    inscriptionNumber: number;
-    output: string;
-    outputValue: number;
-    content: string;
-    price: number;
-    tokenTicker: string;
-  }
+  address: string;
+  pubkey: string;
+  inscriptionId: string;
+  inscriptionNumber: number;
+  content: string;
+  price: number;
+  tokenTicker: string;
+}

@@ -1,4 +1,6 @@
-export const listInscription = async (sellerAddress: string, inscriptionId: string, price: number, tokenTicker: string) => {
+import { IInscription } from "@/types/inscription"
+
+export const listInscription = async (inscription: IInscription) => {
 
 }
 

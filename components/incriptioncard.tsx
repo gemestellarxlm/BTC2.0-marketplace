@@ -9,19 +9,19 @@ import {
   Image,
   Divider,
   Link,
+  Chip,
 } from "@nextui-org/react";
 import { ConnectionContext } from "@/contexts/connectioncontext";
 import { useRouter } from "next/navigation";
 import { IInscription } from "@/types/inscription";
 
 const InscriptionCard = ({ inscription }: { inscription: IInscription }) => {
-  const {currentAccount} = useContext(ConnectionContext);
-  
+  const { currentAccount } = useContext(ConnectionContext);
+
   const router = useRouter();
   const [data, setData] = useState();
 
-  useEffect(() => {
-  }, []);
+  useEffect(() => {}, []);
 
   return (
     <Card
@@ -32,7 +32,7 @@ const InscriptionCard = ({ inscription }: { inscription: IInscription }) => {
       }}
     >
       <CardHeader className="flex gap-3">
-        <h1>{inscription.inscriptionNumber}</h1>
+        <h1>#{inscription.inscriptionNumber}</h1>
       </CardHeader>
       <Divider />
       <CardBody>
@@ -45,11 +45,18 @@ const InscriptionCard = ({ inscription }: { inscription: IInscription }) => {
       </CardBody>
       <Divider />
       <CardFooter>
-        <div className="flex flex-col">
-          <p className="text-md">{inscription.price}</p>
-          <p className="text-small text-default-500">
-            {inscription.tokenTicker}
-          </p>
+        <div className="flex flex-col justify-end w-full">
+          {currentAccount === inscription.address && (
+            <Chip color="primary">Unlisted</Chip>
+          )}
+          {currentAccount !== inscription.address && (
+            <>
+              <p className="text-md text-right">{inscription.price}</p>
+              <p className="text-small text-default-500 text-right">
+                {inscription.tokenTicker}
+              </p>
+            </>
+          )}
         </div>
       </CardFooter>
     </Card>

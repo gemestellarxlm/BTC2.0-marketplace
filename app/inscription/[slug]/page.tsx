@@ -35,19 +35,20 @@ import { getOfferDataForTable } from "@/utils/offer";
 import { ConnectionContext } from "@/contexts/connectioncontext";
 import { getTokenBalanceByAddressTicker } from "@/api/unisat";
 import { Notification } from "@/components/notification";
-import { unlistInscription } from "@/api/list";
+import { unlistInscription, listInscription } from "@/api/list";
 // import { toaster } from "@/utils/toast";
 
 const page = () => {
   const pathname = usePathname();
-  const { currentAccount } = useContext(ConnectionContext);
+  const { currentAccount, pubkey } = useContext(ConnectionContext);
   const [inscription, setInscription] = useState<IInscription>({
-    address: "string",
-    inscriptionId: "string",
+    address: "",
+    pubkey: "",
+    inscriptionId: "",
     inscriptionNumber: 0,
-    content: "string",
-    price: 1234124,
-    tokenTicker: "tsnt",
+    content: "",
+    price: 0,
+    tokenTicker: "",
   });
   const [offers, setOffers] = useState<IOfferForTable[]>([]);
   const [bestOffer, setBestOffer] = useState<IOfferForTable>({
@@ -63,11 +64,14 @@ const page = () => {
 
   useEffect(() => {
     getInscription();
+    getTokenBalance();
     getOffers();
   }, []);
 
   useEffect(() => {
+    getInscription();
     getTokenBalance();
+    getOffers();
   }, [currentAccount]);
 
   const getTokenBalance = async () => {
@@ -77,12 +81,21 @@ const page = () => {
   };
 
   const getInscription = async () => {
-    const res = await getInscriptionById(pathname);
+    const inscriptionId = pathname.split("/").pop();
+    const res = await getInscriptionById(inscriptionId as string, currentAccount);
 
-    if (res.price) setIsListed(true);
+    if (res.price !== 0) setIsListed(true);
     else setIsListed(false);
-
-    setInscription(res);
+    
+    setInscription({
+      address: currentAccount,
+  pubkey: pubkey,
+  inscriptionId: res.inscriptionId,
+  inscriptionNumber: res.inscriptionNumber,
+  content: res.content,
+  price: res.price,
+  tokenTicker: res.token
+    });
   };
 
   const getOffers = async () => {
@@ -98,8 +111,6 @@ const page = () => {
         setBestOffer(tempBestOffer);
       }
     }
-
-    setOffers(resForTable);
   };
 
   const makeOffer = async () => {
@@ -118,9 +129,13 @@ const page = () => {
   };
 
   const requestList = async () => {
-    const res = await unlistInscription(inscription.inscriptionId);
-    // if (res) toast.success("Successfully unlisted!");
-    // else toast.success("Error occured.");
+    // console.log("xxxxx => ", inscription);
+    // const accounts = await window.unisat.getAccounts();
+    // console.log("xxxxx => ", accounts[0]);
+    // const pubkey = await window.unisat.getPublicKey(accounts[0]);
+    // console.log("xxxxx => ", pubkey);
+    const res = await listInscription(inscription);
+    
   };
 
   const handleOfferOrList = () => {
@@ -130,7 +145,7 @@ const page = () => {
 
   const handleUnlist = async () => {};
 
-  const handleList = async () => {};
+  // const handleList = async () => {};
 
   const handleAccept = (offId: string) => {};
 
@@ -156,7 +171,7 @@ const page = () => {
             </div>
             {}
             <div className="flex flex-col justify-start h-full pt-6 col-span-12 md:col-span-7 gap-4">
-              <h1>{"inscriptionID : " + inscription.inscriptionId}</h1>
+              <h1>{"inscriptionID : " + inscription.inscriptionId.substring(0, 10)+"..."}</h1>
               {(currentAccount != inscription.address || isListed) && (
                 <h2>
                   {"Price : " +
@@ -184,8 +199,8 @@ const page = () => {
               )}
 
               {currentAccount === inscription.address && !isListed && (
-                <ButtonGroup>
-                  <Button color="primary" onPress={handleList}>
+                <ButtonGroup className="w-full mt-[250px] sm:mt-4">
+                  <Button color="primary" className="w-full" onPress={onOpen}>
                     List
                   </Button>
                 </ButtonGroup>
@@ -291,7 +306,7 @@ const page = () => {
               </ModalHeader>
               <Divider />
               <ModalBody>
-                <h1>{"inscriptionID : " + inscription.inscriptionId}</h1>
+                <h1>{"inscriptionID : " + inscription.inscriptionId.substring(0, 10) + "..."}</h1>
                 {inscription.address !== currentAccount && (
                   <h2>
                     {"Price : " +
@@ -300,7 +315,7 @@ const page = () => {
                       inscription.tokenTicker}
                   </h2>
                 )}
-                {bestOffer && (
+                {bestOffer.price !== 0 && (
                   <>
                     <Divider />
                     <h2>Best Offer</h2>
@@ -319,12 +334,13 @@ const page = () => {
                     </div>
                   }
                 />
-                <>
+                {
+                  (currentAccount !== inscription.inscriptionId && bestOffer) && <>
                   <Divider orientation="horizontal" />
                   <h2>Your Balance</h2>
                   <h3>{tokenBalance}&nbsp;TSNT</h3>
                 </>
-                {/* )} */}
+                }
               </ModalBody>
               <Divider orientation="horizontal" />
               <ModalFooter>
