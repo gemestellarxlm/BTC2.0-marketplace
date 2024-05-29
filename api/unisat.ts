@@ -12,6 +12,7 @@ export const getTokenBalanceByAddressTicker = async (
       Authorization: `Bearer ${unisat_api_key}`,
     },
   };
+  
   try {
     const res = await axios.get(url, config);
     if (res.data.msg && res.data.msg == "ok") return res.data.data.availableBalance;

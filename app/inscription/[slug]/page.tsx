@@ -25,9 +25,15 @@ import {
   Divider,
 } from "@nextui-org/react";
 import toast, { Toaster } from "react-hot-toast";
+import * as Bitcoin from "bitcoinjs-lib";
 
 import { getInscriptionById } from "@/api/inscription";
-import { getOffersByInscriptionId, requestOffer } from "@/api/offer";
+import {
+  getOffersByInscriptionId,
+  requestOffer,
+  requestPsbt,
+  rejectOffer,
+} from "@/api/offer";
 import { IInscription } from "@/types/inscription";
 import { IOffer, IOfferForTable, IOfferForTableMe } from "@/types/offer";
 import { offerTableColumns, offerTableColumnsMe } from "@/config/table";
@@ -35,19 +41,21 @@ import { getOfferDataForTable } from "@/utils/offer";
 import { ConnectionContext } from "@/contexts/connectioncontext";
 import { getTokenBalanceByAddressTicker } from "@/api/unisat";
 import { Notification } from "@/components/notification";
-import { unlistInscription } from "@/api/list";
-// import { toaster } from "@/utils/toast";
+import { unlistInscription, listInscription } from "@/api/list";
+import { marketplace_fee } from "@/config/site";
+import { testpsbt } from "@/config/site";
 
 const page = () => {
   const pathname = usePathname();
-  const { currentAccount } = useContext(ConnectionContext);
+  const { currentAccount, pubkey } = useContext(ConnectionContext);
   const [inscription, setInscription] = useState<IInscription>({
-    address: "string",
-    inscriptionId: "string",
+    address: "",
+    pubkey: "",
+    inscriptionId: "",
     inscriptionNumber: 0,
-    content: "string",
-    price: 1234124,
-    tokenTicker: "tsnt",
+    content: "",
+    price: 0,
+    tokenTicker: "",
   });
   const [offers, setOffers] = useState<IOfferForTable[]>([]);
   const [bestOffer, setBestOffer] = useState<IOfferForTable>({
@@ -59,35 +67,56 @@ const page = () => {
   const [isListed, setIsListed] = useState(true);
   const [tokenBalance, setTokenBalance] = useState(0);
   const [offerValue, setOfferValue] = useState(0);
-  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
 
   useEffect(() => {
-    getInscription();
-    getOffers();
+    initData();
   }, []);
 
   useEffect(() => {
-    getTokenBalance();
+    initData();
   }, [currentAccount]);
+
+  const initData = async () => {
+    await getInscription();
+    await getTokenBalance();
+    await getOffers();
+  };
 
   const getTokenBalance = async () => {
     if (!currentAccount) return;
     const res = await getTokenBalanceByAddressTicker(currentAccount, "TSNT");
-    setTokenBalance(res);
+    setTokenBalance(res * 1);
   };
 
   const getInscription = async () => {
-    const res = await getInscriptionById(pathname);
+    const inscriptionId = pathname.split("/").pop();
+    const res = await getInscriptionById(
+      inscriptionId as string,
+      currentAccount
+    );
 
-    if (res.price) setIsListed(true);
+    if (res.price !== 0) setIsListed(true);
     else setIsListed(false);
 
-    setInscription(res);
+    setInscription({
+      address: res.address,
+      pubkey: res.pubkey,
+      inscriptionId: res.inscriptionId,
+      inscriptionNumber: res.inscriptionNumber,
+      content: res.content,
+      price: res.price,
+      tokenTicker: res.tokenTicker,
+    });
   };
 
   const getOffers = async () => {
-    const res = await getOffersByInscriptionId(pathname);
+    let res = await getOffersByInscriptionId(pathname);
+    if (currentAccount == inscription.address) {
+      res = res.filter((item: any) => item.status == 1);
+    }
     const resForTable: IOfferForTable[] = getOfferDataForTable(res);
+
     if (resForTable.length != 0) {
       let tempBestOffer = resForTable.at(0);
       resForTable.forEach((offer) => {
@@ -98,7 +127,6 @@ const page = () => {
         setBestOffer(tempBestOffer);
       }
     }
-
     setOffers(resForTable);
   };
 
@@ -109,32 +137,147 @@ const page = () => {
       );
       return;
     }
-    const res = await requestOffer(
-      inscription.inscriptionId,
-      currentAccount,
-      offerValue,
-      inscription.tokenTicker
-    );
+    // let fee_brcInscription: any = {},
+    //   brcInscription: any = {};
+    // try {
+    //   fee_brcInscription = await window.unisat.inscribeTransfer(
+    //     "tsnt",
+    //     Math.round((offerValue * marketplace_fee) / 100).toString()
+    //   );
+
+    //   console.log("fee_brcinscription => ", fee_brcInscription);
+    //   brcInscription = await window.unisat.inscribeTransfer(
+    //     "tsnt",
+    //     Math.round((offerValue * (100 - marketplace_fee)) / 100).toString()
+    //   );
+    //   console.log("fee_brcinscription => ", brcInscription);
+    // } catch (error) {
+    //   toast.error("Error occured while inscribing your brc20 tokens!");
+    //   return;
+    // }
+
+    // console.log(
+    //   "Psbt src data => ",
+    //   inscription.inscriptionId,
+    //   pubkey,
+    //   currentAccount,
+    //   inscription.pubkey,
+    //   inscription.address
+    // );
+
+    // const psbtStr: any = await requestPsbt(
+    //   inscription.inscriptionId,
+    //   // brcInscription.inscriptionId,
+    //   // fee_brcInscription.inscriptionId,
+    //   "b1da10806f31ea5748863bcf87d419913063941593af4d46f4cfb0dad885a2a1i0",
+    //   "596dd60e2965b356aad4004912d3d905cb2266dba25d8372b50d17423d81fe34i0",
+    //   pubkey,
+    //   currentAccount,
+    //   inscription.pubkey,
+    //   inscription.address
+    // );
+
+    // console.log("psbt str => ", psbtStr);
+
+    // if (psbtStr == "") {
+    //   toast.error("Error occured while request psbt.");
+    //   return;
+    // }
+    // const psbt = Bitcoin.Psbt.fromHex(psbtStr);
+    let signedPsbt: any;
+    try {
+      // signedPsbt = await window.unisat.signPsbt(psbtStr);
+      signedPsbt = await window.unisat.signPsbt(testpsbt);
+    } catch (error) {
+      toast.error("Error occured while sign transaction.");
+      return;
+    }
+
+    console.log("Signed Psbt => ", signedPsbt);
+
+    let offerFlag: any;
+    try {
+      offerFlag = await requestOffer({
+        inscriptionId: inscription.inscriptionId,
+        sellerAddress: inscription.address,
+        buyerAddress: currentAccount,
+        price: offerValue,
+        tokenTicker: "tsnt",
+        psbt: signedPsbt,
+        status: 1,
+      });
+      if (offerFlag) toast.success("Successfully offered.");
+    } catch (error) {
+      toast.error("Error occured while request offer.");
+    }
   };
 
   const requestList = async () => {
+    const res = await listInscription({
+      address: inscription.address,
+      pubkey: inscription.pubkey,
+      inscriptionId: inscription.inscriptionId,
+      inscriptionNumber: inscription.inscriptionNumber,
+      content: inscription.content,
+      price: offerValue,
+      tokenTicker: inscription.tokenTicker,
+    });
+
+    setInscription({
+      address: inscription.address,
+      pubkey: inscription.pubkey,
+      inscriptionId: inscription.inscriptionId,
+      inscriptionNumber: inscription.inscriptionNumber,
+      content: inscription.content,
+      price: offerValue,
+      tokenTicker: inscription.tokenTicker,
+    });
+
+    if (res) {
+      toast.success("Successfully listed");
+      onClose();
+      setIsListed(true);
+    }
+  };
+
+  const handleUnlist = async () => {
     const res = await unlistInscription(inscription.inscriptionId);
-    // if (res) toast.success("Successfully unlisted!");
-    // else toast.success("Error occured.");
+    if (res) {
+      toast.success("Successfully unlisted!");
+      setIsListed(false);
+      setInscription({
+        address: inscription.address,
+        pubkey: inscription.pubkey,
+        inscriptionId: inscription.inscriptionId,
+        inscriptionNumber: inscription.inscriptionNumber,
+        content: inscription.content,
+        price: 0,
+        tokenTicker: inscription.tokenTicker,
+      });
+    } else {
+      toast.success("Error occured while unlisting!");
+    }
+    onClose();
   };
 
   const handleOfferOrList = () => {
-    if (isListed) makeOffer();
-    else requestList();
+    if (isListed) {
+      makeOffer();
+    } else requestList();
   };
 
-  const handleUnlist = async () => {};
+  // const handleList = async () => {};
 
-  const handleList = async () => {};
+  const handleAccept = (offerId: string) => {};
 
-  const handleAccept = (offId: string) => {};
-
-  const handleReject = (offId: string) => {};
+  const handleReject = async (offerId: string) => {
+    const res = await rejectOffer(offerId);
+    if (!res) {
+      toast.error("Error occured while reject the offer.");
+      return;
+    }
+    initData();
+  };
 
   return (
     <div className="flex justify-center">
@@ -156,7 +299,11 @@ const page = () => {
             </div>
             {}
             <div className="flex flex-col justify-start h-full pt-6 col-span-12 md:col-span-7 gap-4">
-              <h1>{"inscriptionID : " + inscription.inscriptionId}</h1>
+              <h1>
+                {"inscriptionID : " +
+                  inscription.inscriptionId.substring(0, 9) +
+                  "..."}
+              </h1>
               {(currentAccount != inscription.address || isListed) && (
                 <h2>
                   {"Price : " +
@@ -174,18 +321,19 @@ const page = () => {
 
               {currentAccount === inscription.address && isListed && (
                 <ButtonGroup className="w-full">
-                  <Button color="primary" className="w-full" onPress={onOpen}>
-                    Update Price
-                  </Button>
-                  <Button className="w-full" onPress={handleUnlist}>
+                  <Button
+                    className="w-full"
+                    color="primary"
+                    onPress={handleUnlist}
+                  >
                     Unlist
                   </Button>
                 </ButtonGroup>
               )}
 
               {currentAccount === inscription.address && !isListed && (
-                <ButtonGroup>
-                  <Button color="primary" onPress={handleList}>
+                <ButtonGroup className="w-full mt-[250px] sm:mt-4">
+                  <Button color="primary" className="w-full" onPress={onOpen}>
                     List
                   </Button>
                 </ButtonGroup>
@@ -203,7 +351,8 @@ const page = () => {
                         {(columnKey) => (
                           <TableCell>
                             {columnKey === "from"
-                              ? getKeyValue(offer, columnKey).substring(0, 9)
+                              ? getKeyValue(offer, columnKey).substring(0, 9) +
+                                "..."
                               : getKeyValue(offer, columnKey)}
                           </TableCell>
                         )}
@@ -285,13 +434,18 @@ const page = () => {
           {(onClose) => (
             <>
               <ModalHeader className="flex flex-col gap-1">
-                {inscription.address !== currentAccount && "Make Offer"} 
-                {(inscription.address === currentAccount && isListed) && "Update Price"}
-                {(inscription.address === currentAccount && !isListed) && "List Inscription"}
+                {inscription.address !== currentAccount && "Make Offer"}
+                {inscription.address === currentAccount &&
+                  !isListed &&
+                  "List Inscription"}
               </ModalHeader>
               <Divider />
               <ModalBody>
-                <h1>{"inscriptionID : " + inscription.inscriptionId}</h1>
+                <h1>
+                  {"inscriptionID : " +
+                    inscription.inscriptionId.substring(0, 10) +
+                    "..."}
+                </h1>
                 {inscription.address !== currentAccount && (
                   <h2>
                     {"Price : " +
@@ -300,7 +454,7 @@ const page = () => {
                       inscription.tokenTicker}
                   </h2>
                 )}
-                {bestOffer && (
+                {bestOffer.price !== 0 && (
                   <>
                     <Divider />
                     <h2>Best Offer</h2>
@@ -308,28 +462,30 @@ const page = () => {
                   </>
                 )}
                 <Divider orientation="horizontal" />
-                {isListed ? <h2>Your Offer</h2> : <h2>Price</h2>}
+
+                {currentAccount !== inscription.address && <h2>Your Offer</h2>}
                 <Input
                   type="number"
-                  placeholder="Input your offer value."
+                  placeholder="Input value."
                   onChange={(e) => setOfferValue(parseInt(e.target.value))}
                   endContent={
                     <div className="pointer-events-none flex items-center">
-                      <span className="text-default-400 text-small">tsnt</span>
+                      <span className="text-default-400 text-2xl">TSNT</span>
                     </div>
                   }
                 />
-                <>
-                  <Divider orientation="horizontal" />
-                  <h2>Your Balance</h2>
-                  <h3>{tokenBalance}&nbsp;TSNT</h3>
-                </>
-                {/* )} */}
+                {currentAccount !== inscription.address && (
+                  <>
+                    <Divider orientation="horizontal" />
+                    <h2>Your Balance</h2>
+                    <h3>{tokenBalance}&nbsp;TSNT</h3>
+                  </>
+                )}
               </ModalBody>
               <Divider orientation="horizontal" />
               <ModalFooter>
                 <Button color="primary" onPress={handleOfferOrList}>
-                  {isListed ? "Offer" : "List"}
+                  {currentAccount != inscription.address ? "Offer" : "List"}
                 </Button>
                 <Button onPress={onClose}>Cancel</Button>
               </ModalFooter>

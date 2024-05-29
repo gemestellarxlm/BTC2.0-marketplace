@@ -1,7 +1,6 @@
 import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
 import { Link } from "@nextui-org/link";
-import { ToastContainer } from "react-toastify";
 
 import clsx from "clsx";
 import { Providers } from "@/contexts/providers";
