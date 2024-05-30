@@ -1,4 +1,5 @@
 export interface IOffer {
+    _id: string;
     inscriptionId: string;
     sellerAddress: string;
     buyerAddress: string;
@@ -6,6 +7,7 @@ export interface IOffer {
     tokenTicker: string;
     psbt: string;
     status: number;
+    buyerSignedPsbt: string;
 }
 
 export interface IOfferForTable {
@@ -13,6 +15,7 @@ export interface IOfferForTable {
     price: number;
     token: string;
     from: string;
+    status: number;
 }
 
 export interface IOfferForTableMe {

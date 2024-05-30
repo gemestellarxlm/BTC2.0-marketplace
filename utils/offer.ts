@@ -7,7 +7,8 @@ export const getOfferDataForTable = (offers: any): IOfferForTable[] => {
             key:  offer. _id,
             price: offer.price,
             token: offer.tokenTicker,
-            from: offer.buyerAddress
+            from: offer.buyerAddress,
+            status: offer.status,
         };
     });
 
