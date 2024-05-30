@@ -1,10 +1,11 @@
 export interface IOffer {
+    inscriptionId: string;
     sellerAddress: string;
     buyerAddress: string;
-    inscriptionId: string;
     price: number;
     tokenTicker: string;
     psbt: string;
+    status: number;
 }
 
 export interface IOfferForTable {

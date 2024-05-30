@@ -14,12 +14,18 @@ const ListedInscriptions = () => {
 
   useEffect(() => {
     getAllInscriptions();
+  }, []);
+
+  useEffect(() => {
+    getAllInscriptions();
   }, [isMine]);
 
   const getAllInscriptions = async () => {
     let inscriptions: IInscription[] = [];
     if (isMine) inscriptions = await getInscriptions(currentAccount);
     else inscriptions = await getListedInscriptions();
+
+    console.log("xxxxx =>", inscriptions);
     setInscriptions(inscriptions);
   };
 

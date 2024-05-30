@@ -66,7 +66,6 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({
             const balance = await unisat.getBalance(accounts[0]);
             setBalance(balance);
             const pubkey = await unisat.getPublicKey(accounts[0]);
-            console.log("xxxxx => ", pubkey);
             setPubkey(pubkey);
           }
         } catch (error) {
@@ -90,7 +89,6 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({
           const newBalance = await unisat.getBalance(accounts[0]);
           setBalance(newBalance);
           const pubkey = await unisat.getPublicKey(accounts[0]);
-          console.log("xxxxx => ", pubkey);
           setPubkey(pubkey);
         }
       } catch (error) {
@@ -122,7 +120,6 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({
           setBalance(newBalance);
           const pubkey = await unisat.getPublicKey(accounts[0]);
           setPubkey(pubkey);
-          console.log("xxxxx => ", pubkey);
         } else {
           // Handle the case where no accounts are found after the network switch
           setIsConnected(false);

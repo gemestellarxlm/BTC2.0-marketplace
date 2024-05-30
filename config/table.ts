@@ -28,6 +28,6 @@ export const offerTableColumnsMe = [
   },
   {
     key: "action",
-    label: "Action",
+    label: "ACTION",
   },
 ];

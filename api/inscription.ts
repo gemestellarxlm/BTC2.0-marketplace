@@ -18,7 +18,7 @@ export const getInscriptions = async (
   address: string
 ): Promise<IInscription[]> => {
   const initialResponse = await window.unisat.getInscriptions(0, 100);
-  
+
   const res: IInscription[] = [];
   for (const inscription of initialResponse.list) {
     const contentData = await fetchContentData(inscription.content);
@@ -52,7 +52,6 @@ export const getListedInscriptionsByAddress = async (
   address: string
 ): Promise<IInscription[]> => {
   const url = `${backend_api_base_url}/api/inscription/address/${address}`;
-
   try {
     const response = await axios.get(url);
     if (response.data.success) {
@@ -66,11 +65,18 @@ export const getListedInscriptionsByAddress = async (
 };
 
 export const getListedInscriptions = async (): Promise<IInscription[]> => {
-  return [];
+  const url = `${backend_api_base_url}/api/inscription/all`;
+
+  try {
+    const res = await axios.get(url);
+    return res.data.inscriptions;
+  } catch (error) {
+    console.log("Get all listed inscription error.");
+    return [];
+  }
 };
 
 export const getInscriptionById = async (id: string, address: string) => {
-
   let inscription: IInscription = {
     address: "",
     pubkey: "",
@@ -86,22 +92,19 @@ export const getInscriptionById = async (id: string, address: string) => {
   try {
     const response = await axios.get(url);
     if (response.data.success) {
-      inscription =  response.data.inscription;
+      inscription = response.data.inscription;
     }
   } catch (error: any) {
     console.log("Error fetching content error:", error.response.data.error);
   }
 
-  console.log("Get inscription by id => ", inscription);
 
   if (inscription.inscriptionId === "") {
     const inscriptions = await getInscriptions(address);
-    console.log("Get inscription by id => ", inscriptions);
     inscriptions.forEach((item) => {
       if (item.inscriptionId === id) inscription = item;
-    })
+    });
   }
 
-  console.log("Get inscription by id => ", inscription)
-  return inscription; 
+  return inscription;
 };
