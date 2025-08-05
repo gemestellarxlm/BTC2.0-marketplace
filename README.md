@@ -1,6 +1,6 @@
-# 🌐 BRC20 Marketplace 🚀
+# 🌐 BRC 2.0 Future Marketplace 🚀
 
-Welcome to **BRC20 Marketplace**, the **next-generation platform** for seamless trading, minting, and managing BRC20 tokens on the blockchain. Whether you're an investor, developer, or enthusiast, we've got you covered with cutting-edge features and a robust, user-friendly interface.
+Welcome to **BRC 2.0 Marketplace**, the **next-generation platform** for seamless trading, minting, and managing BRC20 tokens on the blockchain. Whether you're an investor, developer, or enthusiast, we've got you covered with cutting-edge features and a robust, user-friendly interface.
 
 ---
 
